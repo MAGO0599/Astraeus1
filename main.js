@@ -8,6 +8,8 @@
   window.currentLevel = 1;
   window.gameStarted = false;
   window.paused = false;
+  window.autoAdvance = true;
+  window.autoAdvanceTimer = null;
   window.activeKeys = {};
   window.mouse = { x: 0, y: 0, down: false };
   window.stars3D = Array.from({ length: 240 }, () => ({
@@ -119,6 +121,152 @@
     return (I18N[window.currentLang] && I18N[window.currentLang][key]) || I18N.en[key] || key;
   }
 
+  // ============ CONTROLES COMPACTOS: PAUSA Y AVANCE AUTOMÁTICO ============
+  function ensureCompactTopControls() {
+    const topNav = document.querySelector('.top-nav');
+    if (!topNav || document.getElementById('pauseGameBtn')) return;
+
+    const actionsWrap = topNav.querySelector('.nav-actions') || topNav;
+
+    const autoBtn = document.createElement('button');
+    autoBtn.id = 'autoAdvanceBtn';
+    autoBtn.type = 'button';
+    autoBtn.style.cssText = 'padding:5px 8px;border-radius:8px;border:1px solid rgba(74,222,128,0.5);background:rgba(15,23,42,0.85);color:#4ade80;font-family:Orbitron,sans-serif;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap;';
+    autoBtn.onclick = () => window.toggleAutoAdvance();
+
+    const pauseBtn = document.createElement('button');
+    pauseBtn.id = 'pauseGameBtn';
+    pauseBtn.type = 'button';
+    pauseBtn.style.cssText = 'padding:5px 9px;border-radius:8px;border:1px solid rgba(56,189,248,0.55);background:rgba(15,23,42,0.85);color:#38bdf8;font-family:Orbitron,sans-serif;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap;';
+    pauseBtn.onclick = () => window.togglePauseMenu();
+
+    actionsWrap.appendChild(autoBtn);
+    actionsWrap.appendChild(pauseBtn);
+    updateCompactControlsUI();
+  }
+
+  function updateCompactControlsUI() {
+    const es = window.currentLang === 'es';
+    const autoBtn = document.getElementById('autoAdvanceBtn');
+    const pauseBtn = document.getElementById('pauseGameBtn');
+    if (autoBtn) {
+      autoBtn.textContent = window.autoAdvance ? '⏭ AUTO: ON' : '⏭ AUTO: OFF';
+      autoBtn.style.color = window.autoAdvance ? '#4ade80' : '#94a3b8';
+      autoBtn.style.borderColor = window.autoAdvance ? 'rgba(74,222,128,0.5)' : 'rgba(148,163,184,0.35)';
+    }
+    if (pauseBtn) {
+      pauseBtn.textContent = window.paused ? (es ? '▶ SEGUIR' : '▶ RESUME') : (es ? '⏸ PAUSA' : '⏸ PAUSE');
+      pauseBtn.style.color = window.paused ? '#fde047' : '#38bdf8';
+    }
+  }
+
+  window.clearAutoAdvanceTimer = function () {
+    if (window.autoAdvanceTimer) {
+      clearInterval(window.autoAdvanceTimer);
+      window.autoAdvanceTimer = null;
+    }
+  };
+
+  window.toggleAutoAdvance = function () {
+    window.autoAdvance = !window.autoAdvance;
+    if (!window.autoAdvance) window.clearAutoAdvanceTimer();
+    audioSys.beep(window.autoAdvance ? 780 : 520, 0.08);
+    updateCompactControlsUI();
+  };
+
+  window.togglePauseMenu = function () {
+    if (!window.gameStarted) return;
+    const es = window.currentLang === 'es';
+    const msgScreen = document.getElementById('messageScreen');
+
+    if (window.paused && msgScreen && msgScreen.style.display === 'flex') {
+      window.clearAutoAdvanceTimer();
+      msgScreen.style.display = 'none';
+      window.paused = false;
+      updateCompactControlsUI();
+      if (window.currentLevel !== 5) canvas.focus();
+      return;
+    }
+
+    window.clearAutoAdvanceTimer();
+    audioSys.beep(620, 0.08);
+    showModal(
+      es ? '⏸ MISIÓN EN PAUSA' : '⏸ MISSION PAUSED',
+      es
+        ? `Comandante ${commanderName} · Avance automático: ${window.autoAdvance ? 'ACTIVADO' : 'MANUAL'}. Elige continuar o saltar a otra etapa:`
+        : `Commander ${commanderName} · Auto-advance: ${window.autoAdvance ? 'ON' : 'MANUAL'}. Resume or jump to another stage:`,
+      [
+        { label: es ? '▶ CONTINUAR MISIÓN' : '▶ RESUME MISSION', action: () => {} },
+        {
+          label: window.autoAdvance
+            ? (es ? '⏭ DESACTIVAR AUTO-AVANCE' : '⏭ TURN OFF AUTO-ADVANCE')
+            : (es ? '⏭ ACTIVAR AUTO-AVANCE' : '⏭ TURN ON AUTO-ADVANCE'),
+          secondary: true,
+          action: () => { window.toggleAutoAdvance(); }
+        },
+        { label: es ? '1. Órbita Orion' : '1. Orion Orbit', secondary: true, action: () => loadLevel(1) },
+        { label: es ? '2. Rover Lunar' : '2. Lunar Rover', secondary: true, action: () => loadLevel(1.5) },
+        { label: es ? '3. Airlock UV' : '3. UV Airlock', secondary: true, action: () => loadLevel(2) },
+        { label: es ? '4. Base 14 Días' : '4. 14-Day Base', secondary: true, action: () => loadLevel(3) },
+        { label: es ? '5. Cráter Hielo' : '5. Ice Crater', secondary: true, action: () => loadLevel(4) },
+        { label: es ? '6. Museo 3D NASA' : '6. NASA 3D Museum', secondary: true, action: () => loadLevel(5) }
+      ],
+      '⏸'
+    );
+  };
+
+  function advanceOrPrompt({ title, text, nextLabel, onNext, badge = '🏅', delaySec = 3 }) {
+    window.clearAutoAdvanceTimer();
+    const es = window.currentLang === 'es';
+
+    if (!window.autoAdvance) {
+      showModal(title, text, [{ label: nextLabel, action: onNext }], badge);
+      return;
+    }
+
+    let remaining = delaySec;
+    const formatSub = (sec) => es
+      ? `${text}\n\n⏭ Avanzando automáticamente en ${sec}s... (Pulsa PAUSA para detener)`
+      : `${text}\n\n⏭ Auto-advancing in ${sec}s... (Press PAUSE to stop)`;
+
+    showModal(
+      title,
+      formatSub(remaining),
+      [
+        {
+          label: `${nextLabel} (${remaining}s)`,
+          action: () => { window.clearAutoAdvanceTimer(); onNext(); }
+        },
+        {
+          label: es ? '⏸ PAUSAR AQUÍ' : '⏸ PAUSE HERE',
+          secondary: true,
+          action: () => { window.clearAutoAdvanceTimer(); window.togglePauseMenu(); }
+        }
+      ],
+      badge
+    );
+
+    window.autoAdvanceTimer = setInterval(() => {
+      if (!window.paused) {
+        window.clearAutoAdvanceTimer();
+        return;
+      }
+      remaining--;
+      if (remaining <= 0) {
+        window.clearAutoAdvanceTimer();
+        document.getElementById('messageScreen').style.display = 'none';
+        window.paused = false;
+        updateCompactControlsUI();
+        onNext();
+      } else {
+        const txtEl = document.getElementById('messageText');
+        const firstBtn = document.querySelector('#modalBtns button');
+        if (txtEl) txtEl.textContent = formatSub(remaining);
+        if (firstBtn) firstBtn.textContent = `${nextLabel} (${remaining}s)`;
+      }
+    }, 1000);
+  }
+
   window.applyLanguageUI = function () {
     const lang = window.currentLang;
     const isEs = lang === 'es';
@@ -147,6 +295,8 @@
     const pInput = document.getElementById('password');
     if (uInput) uInput.placeholder = tr('userPlaceholder');
     if (pInput) pInput.placeholder = tr('passPlaceholder');
+
+    updateCompactControlsUI();
 
     if (window.gameStarted) {
       const lesson = scienceLessons[window.currentLevel] || scienceLessons[1];
@@ -399,6 +549,7 @@
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('gameScreen').style.display = '';
     window.gameStarted = true;
+    ensureCompactTopControls();
     resize();
     canvas.focus();
     loadLevel(1);
@@ -489,6 +640,11 @@
 
   window.addEventListener('keydown', e => {
     if (document.activeElement && document.activeElement.tagName === 'INPUT' && document.activeElement.type !== 'range') return;
+    if ((e.code === 'KeyP' || e.code === 'Escape') && window.gameStarted) {
+      e.preventDefault();
+      window.togglePauseMenu();
+      return;
+    }
     activeKeys[e.code] = true;
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
   }, true);
@@ -513,6 +669,7 @@
 
   window.showModal = function (title, text, buttons, badge = '🚀') {
     window.paused = true; activeKeys = {};
+    updateCompactControlsUI();
     document.getElementById('modalBadge').textContent = badge;
     document.getElementById('messageTitle').textContent = title;
     document.getElementById('messageText').textContent = text;
@@ -522,8 +679,10 @@
       btn.textContent = b.label;
       if (b.secondary) btn.className = 'secondary';
       btn.onclick = () => {
+        window.clearAutoAdvanceTimer();
         document.getElementById('messageScreen').style.display = 'none';
         window.paused = false;
+        updateCompactControlsUI();
         if (window.currentLevel !== 5) canvas.focus();
         if (b.action) b.action();
       };
@@ -573,7 +732,7 @@
     function animate3D() {
       requestAnimationFrame(animate3D);
       if (window.currentLevel !== 5) return;
-      if (currentModel && autoRotate3D) currentModel.rotation.y += 0.005;
+      if (currentModel && autoRotate3D && !window.paused) currentModel.rotation.y += 0.005;
       if (controls3D) controls3D.update();
       stars.rotation.y += 0.0001;
       renderer3D.render(scene3D, camera3D);
@@ -651,7 +810,9 @@
 
   // ============ GESTOR DE NIVELES ============
   window.loadLevel = function (lvl) {
+    window.clearAutoAdvanceTimer();
     window.currentLevel = lvl; window.paused = false; activeKeys = {}; resetJoy();
+    updateCompactControlsUI();
     document.getElementById('messageScreen').style.display = 'none';
     document.getElementById('visorEffects').style.boxShadow = 'none';
     document.getElementById('blurOverlay').style.backdropFilter = 'blur(0px)';
@@ -849,7 +1010,7 @@
       suitportClean: false, uvPct: 0, uvHolding: false, uvDone: false,
       presPct: 0, presHolding: false, presDone: false, mareoTimer: 0, mareoDone: false,
       spo2: 92, pulso: 105, tension: 100, establePct: 0, medDone: false,
-      hydrated: false, kilopowerOn: false, eclssActive: false, reportDone: false
+      hydrated: false, kilopowerOn: false, eclssActive: false, reportDone: false, completed: false
     };
     const es = window.currentLang === 'es';
     capcom.say(
@@ -936,13 +1097,15 @@
 
   window.checkLevel2Win = function () {
     const es = window.currentLang === 'es';
-    if (lvl2.suitportClean && lvl2.uvDone && lvl2.presDone && lvl2.medDone && lvl2.hydrated && lvl2.kilopowerOn && lvl2.eclssActive && lvl2.reportDone) {
-      showModal(
-        es ? '🌕 ¡INGRESO A LA BASE COMPLETADO!' : '🌕 BASE ENTRY COMPLETE!',
-        es ? `¡Bien hecho, ${commanderName}! Tu traje está limpio, tus signos vitales son perfectos y la estación tiene energía.` : `Well done, ${commanderName}! Your suit is clean, vitals are optimal, and the base is powered up.`,
-        [{ label: es ? 'ENTRAR A LA BASE LUNAR (ETAPA 4)' : 'ENTER LUNAR BASE (STAGE 4)', action: () => loadLevel(3) }],
-        '🏅'
-      );
+    if (!lvl2.completed && lvl2.suitportClean && lvl2.uvDone && lvl2.presDone && lvl2.medDone && lvl2.hydrated && lvl2.kilopowerOn && lvl2.eclssActive && lvl2.reportDone) {
+      lvl2.completed = true;
+      advanceOrPrompt({
+        title: es ? '🌕 ¡INGRESO A LA BASE COMPLETADO!' : '🌕 BASE ENTRY COMPLETE!',
+        text: es ? `¡Bien hecho, ${commanderName}! Tu traje está limpio, tus signos vitales son perfectos y la estación tiene energía.` : `Well done, ${commanderName}! Your suit is clean, vitals are optimal, and the base is powered up.`,
+        nextLabel: es ? 'ENTRAR A LA BASE LUNAR (ETAPA 4)' : 'ENTER LUNAR BASE (STAGE 4)',
+        onNext: () => loadLevel(3),
+        badge: '🏅'
+      });
     }
   };
 
@@ -1032,7 +1195,7 @@
   function initLevel3() {
     updateLvl3Texts();
     lvl3 = {
-      day: 1, walkX: 0, walkDir: 0, headBob: 0, solved: false,
+      day: 1, walkX: 0, walkDir: 0, headBob: 0, solved: false, nextDayCountdown: 0,
       co2: 1200, psi: 14.5, temp: 21.0, energy: 95,
       s1Val: 18, s2Val: 30, antAngle: -25, seqStep: 0, pumps: 0, holdTimer: 0, holdActive: false,
       scrubSpots: [], hotspotRect: null
@@ -1044,7 +1207,8 @@
 
   window.setupDay3 = function (d) {
     const lang = window.currentLang;
-    lvl3.day = d; lvl3.solved = false; lvl3.seqStep = 0; lvl3.pumps = 0; lvl3.holdTimer = 0; lvl3.holdActive = false;
+    lvl3.day = d; lvl3.solved = false; lvl3.nextDayCountdown = 0;
+    lvl3.seqStep = 0; lvl3.pumps = 0; lvl3.holdTimer = 0; lvl3.holdActive = false;
     lvl3.co2 = (d === 3 || d === 7 || d === 10) ? 2350 : 1250;
     lvl3.psi = (d === 4 || d === 12) ? 13.3 : 14.4;
     lvl3.temp = (d === 5 || d === 11 || d === 14) ? 26.8 : 20.5;
@@ -1160,6 +1324,10 @@
       `;
     }
 
+    const nextText = (lvl3.solved && lvl3.day < 14 && window.autoAdvance && lvl3.nextDayCountdown > 0)
+      ? `⏭ ${es ? 'Día' : 'Day'} ${lvl3.day + 1} (${Math.ceil(lvl3.nextDayCountdown)}s)`
+      : `⏭ ${es ? 'Siguiente Día' : 'Next Day'} (${lvl3.day + 1})`;
+
     document.getElementById('levelConsole').innerHTML = `
       <div class="ctrl-group ${!lvl3.solved ? 'active-step' : ''}">
         <div class="ctrl-title"><span>${info.title[lang]}</span><span>${es ? 'DÍA' : 'DAY'} ${lvl3.day}/14</span></div>
@@ -1170,7 +1338,7 @@
         <div class="ctrl-title"><span>${es ? 'Estado de la Estación' : 'Station Status'}</span><span>${lvl3.solved ? (es ? 'ESTABLE' : 'NOMINAL') : (es ? 'ALERTA' : 'ALERT')}</span></div>
         <div class="btn-grid-2">
           <button class="btn-action" onclick="loadLevel(3)">↺ ${es ? 'Reiniciar' : 'Restart'}</button>
-          ${lvl3.solved && lvl3.day < 14 ? `<button class="btn-action done" onclick="setupDay3(${lvl3.day + 1})">⏭ ${es ? 'Siguiente Día' : 'Next Day'} (${lvl3.day + 1})</button>` : `<button class="btn-action" disabled>${es ? 'Completa el reto' : 'Finish task'}</button>`}
+          ${lvl3.solved && lvl3.day < 14 ? `<button class="btn-action done" onclick="setupDay3(${lvl3.day + 1})">${nextText}</button>` : `<button class="btn-action" disabled>${es ? 'Completa el reto' : 'Finish task'}</button>`}
         </div>
       </div>
     `;
@@ -1183,14 +1351,21 @@
     lvl3.co2 = 460; lvl3.psi = 14.7; lvl3.temp = 21.0; lvl3.energy = Math.min(100, lvl3.energy + 30);
     document.getElementById('alarma').classList.remove('activa');
     audioSys.success();
+
+    if (lvl3.day < 14 && window.autoAdvance) {
+      lvl3.nextDayCountdown = 1.4;
+      capcom.say(es ? `¡Día ${lvl3.day} superado! Pasando al Día ${lvl3.day + 1}...` : `Day ${lvl3.day} cleared! Advancing to Day ${lvl3.day + 1}...`);
+    }
     renderLvl3Console();
+
     if (lvl3.day === 14) {
-      showModal(
-        es ? '☀️ ¡AMANECER LUNAR SUPERADO!' : '☀️ LUNAR SUNRISE REACHED!',
-        es ? '¡Sobreviviste los 14 días de noche lunar! Ahora sal en tu Rover al Cráter Shackleton en busca de hielo.' : 'You survived all 14 days of lunar night! Now drive your Rover into Shackleton Crater to search for water ice.',
-        [{ label: es ? 'IR AL CRÁTER SHACKLETON (ETAPA 5)' : 'GO TO SHACKLETON CRATER (STAGE 5)', action: () => loadLevel(4) }],
-        '☀️'
-      );
+      advanceOrPrompt({
+        title: es ? '☀️ ¡AMANECER LUNAR SUPERADO!' : '☀️ LUNAR SUNRISE REACHED!',
+        text: es ? '¡Sobreviviste los 14 días de noche lunar! Ahora sal en tu Rover al Cráter Shackleton en busca de hielo.' : 'You survived all 14 days of lunar night! Now drive your Rover into Shackleton Crater to search for water ice.',
+        nextLabel: es ? 'IR AL CRÁTER SHACKLETON (ETAPA 5)' : 'GO TO SHACKLETON CRATER (STAGE 5)',
+        onNext: () => loadLevel(4),
+        badge: '☀️'
+      });
     }
   }
 
@@ -1212,7 +1387,7 @@
       o2Hours: 6.0, autoPilot: false, touchDir: { x: 0, z: 0 }, uvLights: false,
       beacons: [{ x: -85, z: 140, placed: false }, { x: 90, z: 240, placed: false }, { x: -65, z: 340, placed: false }],
       craters: [{ x: 25, z: 130, r: 28 }, { x: -35, z: 220, r: 30 }, { x: 30, z: 315, r: 30 }, { x: -95, z: 430, r: 30 }],
-      beaconsPlaced: 0, iceDrilled: false, hlsLanding: false, hlsAlt: 220, crewArrived: false, crashed: false
+      beaconsPlaced: 0, iceDrilled: false, hlsLanding: false, hlsAlt: 220, crewArrived: false, crashed: false, missionFinished: false
     };
     const es = window.currentLang === 'es';
     capcom.say(es ? "Sigue la flecha amarilla para plantar 3 balizas de navegación antes de entrar al cráter oscuro." : "Follow the yellow arrow to plant 3 navigation beacons before entering the dark crater.");
@@ -1317,24 +1492,27 @@
     const es = window.currentLang === 'es';
     if (!lvl4.hlsLanding) { audioSys.alarm(); capcom.say(es ? "Pulsa primero 'Llamar Nave HLS'." : "Press 'Call HLS Lander' first.", true); return; }
     if (!lvl4.crewArrived) { audioSys.alarm(); capcom.say(es ? "Espera unos segundos a que aterrice la nave." : "Wait a few seconds for the lander to touch down.", true); return; }
+    if (lvl4.missionFinished) return;
+    lvl4.missionFinished = true;
     audioSys.success();
-    showModal(
-      es ? `🏆 ¡FELICITACIONES, COMANDANTE ${commanderName.toUpperCase()}!` : `🏆 CONGRATULATIONS, COMMANDER ${commanderName.toUpperCase()}!`,
-      es ? 'Has completado toda la Misión Astræus-Artemis: alunizaste, condujiste bajo gravedad 1/6 G, sobreviviste la noche lunar y hallaste agua en el Polo Sur de la Luna. ¡Ahora explora el Museo 3D de la NASA!' : 'You completed the entire Astræus-Artemis Mission: landed on the Moon, drove in 1/6 G gravity, survived the lunar night, and found water at the Lunar South Pole. Now explore the NASA 3D Museum!',
-      [
-        { label: es ? '🛰️ EXPLORAR MUSEO 3D NASA' : '🛰️ EXPLORE NASA 3D MUSEUM', action: () => loadLevel(5) },
-        { label: es ? '↺ VOLVER A JUGAR' : '↺ PLAY AGAIN', secondary: true, action: () => loadLevel(1) }
-      ],
-      '🏆'
-    );
+    advanceOrPrompt({
+      title: es ? `🏆 ¡FELICITACIONES, COMANDANTE ${commanderName.toUpperCase()}!` : `🏆 CONGRATULATIONS, COMMANDER ${commanderName.toUpperCase()}!`,
+      text: es ? 'Has completado toda la Misión Astræus-Artemis: alunizaste, condujiste bajo gravedad 1/6 G, sobreviviste la noche lunar y hallaste agua en el Polo Sur de la Luna.' : 'You completed the entire Astræus-Artemis Mission: landed on the Moon, drove in 1/6 G gravity, survived the lunar night, and found water at the Lunar South Pole.',
+      nextLabel: es ? '🛰️ EXPLORAR MUSEO 3D NASA' : '🛰️ EXPLORE NASA 3D MUSEUM',
+      onNext: () => loadLevel(5),
+      badge: '🏆',
+      delaySec: 4
+    });
   };
 
   // ============ INTERACCIÓN EN CANVAS ============
   function onCanvasClick() {
+    if (window.paused) return;
     if (window.currentLevel === 2) cleanVisorDust();
     if (window.currentLevel === 3) scrubStationSpots3();
   }
   function onCanvasMove() {
+    if (window.paused) return;
     if (window.currentLevel === 2 && mouse.down) cleanVisorDust();
     if (window.currentLevel === 3 && mouse.down) scrubStationSpots3();
   }
@@ -1411,12 +1589,13 @@
           capcom.say(es ? "¡Completa primero los pasos 1 y 2 antes de aterrizar!" : "Complete steps 1 and 2 before touchdown!", true);
         } else {
           lvl1.done = true; audioSys.success();
-          showModal(
-            es ? '🚀 ¡ALUNIZAJE EXITOSO!' : '🚀 SUCCESSFUL MOON LANDING!',
-            es ? '¡Tocaste la superficie de la Luna con suavidad! Ahora sal de la cápsula y sube al Rover Lunar.' : 'Soft lunar touchdown! Now step outside and board the Lunar Rover.',
-            [{ label: es ? 'SALIR A LA SUPERFICIE (ETAPA 2)' : 'STEP ONTO SURFACE (STAGE 2)', action: () => loadLevel(1.5) }],
-            '🌙'
-          );
+          advanceOrPrompt({
+            title: es ? '🚀 ¡ALUNIZAJE EXITOSO!' : '🚀 SUCCESSFUL MOON LANDING!',
+            text: es ? '¡Tocaste la superficie de la Luna con suavidad! Ahora sal de la cápsula y sube al Rover Lunar.' : 'Soft lunar touchdown! Now step outside and board the Lunar Rover.',
+            nextLabel: es ? 'SALIR A LA SUPERFICIE (ETAPA 2)' : 'STEP ONTO SURFACE (STAGE 2)',
+            onNext: () => loadLevel(1.5),
+            badge: '🌙'
+          });
         }
       }
     }
@@ -1469,12 +1648,13 @@
       const distStation = Math.hypot(lvl15.x - lvl15.stationPos.x, lvl15.z - lvl15.stationPos.z);
       if (isDriving && distStation < 34 && !lvl15.arrived) {
         lvl15.arrived = true; audioSys.success();
-        showModal(
-          es ? '🏛️ ¡LLEGASTE A LA ESTACIÓN ARTEMIS!' : '🏛️ ARRIVED AT ARTEMIS STATION!',
-          es ? '¡Excelente conducción lunar! Ahora entra al Airlock para quitar el polvo espacial de tu traje.' : 'Great lunar driving! Now enter the Airlock to clean space dust off your suit.',
-          [{ label: es ? 'ENTRAR AL AIRLOCK (ETAPA 3)' : 'ENTER AIRLOCK (STAGE 3)', action: () => loadLevel(2) }],
-          '🏛️'
-        );
+        advanceOrPrompt({
+          title: es ? '🏛️ ¡LLEGASTE A LA ESTACIÓN ARTEMIS!' : '🏛️ ARRIVED AT ARTEMIS STATION!',
+          text: es ? '¡Excelente conducción lunar! Ahora entra al Airlock para quitar el polvo espacial de tu traje.' : 'Great lunar driving! Now enter the Airlock to clean space dust off your suit.',
+          nextLabel: es ? 'ENTRAR AL AIRLOCK (ETAPA 3)' : 'ENTER AIRLOCK (STAGE 3)',
+          onNext: () => loadLevel(2),
+          badge: '🏛️'
+        });
       }
 
       if (Math.random() < 0.14) renderLvl15Console();
@@ -1563,6 +1743,16 @@
       if (info && info.type === 'hold' && lvl3.holdActive && !lvl3.solved && getCurrentRoom3() === info.room) {
         lvl3.holdTimer += dt; renderLvl3Console();
         if (lvl3.holdTimer >= info.holdTime) completeDay3();
+      }
+
+      if (lvl3.solved && lvl3.day < 14 && window.autoAdvance && lvl3.nextDayCountdown > 0) {
+        lvl3.nextDayCountdown -= dt;
+        if (lvl3.nextDayCountdown <= 0) {
+          setupDay3(lvl3.day + 1);
+          return;
+        } else if (Math.random() < 0.25) {
+          renderLvl3Console();
+        }
       }
 
       if (!lvl3.solved) {
@@ -1658,8 +1848,12 @@
         lvl4.hlsAlt = Math.max(0, lvl4.hlsAlt - 60 * dt);
         if (lvl4.hlsAlt <= 2 && !lvl4.crewArrived) {
           lvl4.crewArrived = true; audioSys.success();
-          capcom.say(es ? "¡La nave Artemis HLS aterrizó! Pulsa 'Completar Misión'." : "Artemis HLS lander touched down! Press 'Complete Mission'.");
           renderLvl4Console();
+          if (window.autoAdvance) {
+            finishL4();
+          } else {
+            capcom.say(es ? "¡La nave Artemis HLS aterrizó! Pulsa 'Completar Misión'." : "Artemis HLS lander touched down! Press 'Complete Mission'.");
+          }
         }
       }
 
@@ -1718,8 +1912,10 @@
   function renderFPV_Level1(w, h) {
     const cx = w / 2 - lvl1.yaw * 180, cy = h / 2;
     stars3D.forEach(s => {
-      s.z -= (100 + lvl1.velocity * 250) * 0.016;
-      if (s.z <= 10) s.z = 1000;
+      if (!window.paused) {
+        s.z -= (100 + lvl1.velocity * 250) * 0.016;
+        if (s.z <= 10) s.z = 1000;
+      }
       const sx = cx + (s.x / s.z) * 400, sy = cy + (s.y / s.z) * 400;
       ctx.fillStyle = '#fff'; ctx.fillRect(sx, sy, 2.2, 2.2);
     });

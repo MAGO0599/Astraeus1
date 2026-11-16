@@ -621,9 +621,9 @@
   joyEl?.addEventListener('touchend', resetJoy);
 
   function getGameHeight() {
-    const isMobile = window.innerWidth <= 768;
-    return isMobile ? Math.round(window.innerHeight * 0.46) : window.innerHeight;
-  }
+  const isMobile = window.innerWidth <= 768;
+  return isMobile ? Math.round(window.innerHeight * 0.50) : window.innerHeight;
+}
 
   function resize() {
     const gameH = getGameHeight();

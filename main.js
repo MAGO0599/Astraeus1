@@ -466,12 +466,14 @@
   joyEl?.addEventListener('touchend', resetJoy);
 
   function resize() {
+    const isMobile = window.innerWidth <= 768;
+    const gameH = isMobile ? Math.round(window.innerHeight * 0.46) : window.innerHeight;
     canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    canvas.height = gameH;
     if (renderer3D && camera3D) {
-      camera3D.aspect = window.innerWidth / window.innerHeight;
+      camera3D.aspect = window.innerWidth / gameH;
       camera3D.updateProjectionMatrix();
-      renderer3D.setSize(window.innerWidth, window.innerHeight);
+      renderer3D.setSize(window.innerWidth, gameH);
     }
   }
   resize();
@@ -820,7 +822,7 @@
   function initLevel2() {
     updateLvl2Texts();
     const isMobile = canvas.width <= 768;
-    const cx = canvas.width * (isMobile ? 0.26 : 0.42), cy = canvas.height * 0.56;
+    const cx = canvas.width * (isMobile ? 0.5 : 0.42), cy = canvas.height * 0.54;
     const dustSpots = [
       { ox: -18, oy: -102, r: 16 }, { ox: 14, oy: -98, r: 15 }, { ox: 0, oy: -115, r: 13 },
       { ox: -32, oy: -25, r: 20 }, { ox: 28, oy: -18, r: 19 }, { ox: 0, oy: 12, r: 22 },
@@ -1735,7 +1737,7 @@
     const es = window.currentLang === 'es';
     const bounceOffset = lvl15.yBounce * 2.2;
     const horizonY = h * 0.44 + bounceOffset;
-    const centerX = w * 0.42;
+    const centerX = w * (w <= 768 ? 0.5 : 0.42);
 
     ctx.fillStyle = '#02040a'; ctx.fillRect(0, 0, w, horizonY);
     drawRealisticEarth(w * 0.28 - lvl15.x * 0.2, h * 0.16 + bounceOffset * 0.4, 28);
@@ -1813,7 +1815,7 @@
     const px = (mouse.x - w * 0.5) * 0.025, py = (mouse.y - h * 0.5) * 0.02;
     ctx.fillStyle = '#091122'; ctx.fillRect(0, 0, w, h);
 
-    const cx = w * (isMobile ? 0.26 : 0.42) - px, cy = h * 0.56 - py;
+    const cx = w * (isMobile ? 0.5 : 0.42) - px, cy = h * 0.54 - py;
 
     ctx.fillStyle = '#111c33'; ctx.strokeStyle = lvl2.suitportClean ? '#4ade80' : '#fde047'; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.roundRect(cx - 150, cy - 195, 300, 385, 24); ctx.fill(); ctx.stroke();

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Misión Astræus · Artemis Space Academy</title>
+  <link rel="icon" href="modelos/favicon-16x16.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;800;900&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- PORTADA EDUCATIVA -->
+  <div id="coverScreen">
+    <div class="cover-stars"></div>
+    <header class="cover-header">
+      <div class="brand-logo" id="t-brandLogo">🚀 ACADEMIA ASTRÆUS · ARTEMIS</div>
+      <div class="header-actions">
+        <div class="mission-tag" id="t-missionTag">SIMULADOR CIENTÍFICO INTERACTIVO</div>
+        <button class="lang-btn" id="langBtnCover" onclick="toggleLanguage()">🌐 EN / ES</button>
+      </div>
+    </header>
+
+    <main class="cover-main">
+      <div class="cover-eyebrow" id="t-coverEyebrow">🌍 TIERRA → 🌙 POLO SUR LUNAR · 384,400 KM</div>
+      <h1 class="cover-title"><span id="t-coverTitle1">MISIÓN</span> <span class="line-grad">ASTRÆUS</span></h1>
+      <p class="cover-desc" id="t-coverDesc">
+        ¡Conviértete en comandante espacial! Pilota la cápsula Orion, conduce el Rover bajo gravedad lunar (1/6 G), descontamina tu traje en el Airlock, sobrevive 14 días de noche lunar y descubre hielo antiguo en el Cráter Shackleton.
+      </p>
+      <div class="features-grid">
+        <div class="feature-pill"><span>🔭</span> <span id="t-feat1">Ciencia Real NASA</span></div>
+        <div class="feature-pill"><span>🕹️</span> <span id="t-feat2">Cabina 3D Interactiva</span></div>
+        <div class="feature-pill"><span>🏅</span> <span id="t-feat3">Insignias de Misión</span></div>
+      </div>
+      <button class="btn-play-cover" id="t-btnStart" onclick="goToLogin()">¡EMPEZAR AVENTURA ESPACIAL! 🚀</button>
+    </main>
+
+    <footer class="cover-footer">
+      <div id="t-footer1">GRAVEDAD LUNAR: 1.62 m/s² (6 VECES MENOR QUE EN LA TIERRA)</div>
+      <div id="t-footer2">RETARDO DE RADIO: 1.28 SEGUNDOS</div>
+    </footer>
+  </div>
+
+  <!-- LOGIN DE CADETE -->
+  <div id="loginScreen">
+    <div class="login-box">
+      <div class="login-top-row">
+        <button class="lang-btn" id="langBtnLogin" onclick="toggleLanguage()">🌐 EN / ES</button>
+      </div>
+      <div class="badge-icon">👨‍🚀</div>
+      <h1 id="t-loginTitle">CREDENCIAL DE CADETE</h1>
+      <p id="t-loginSub">PREPARA TU TRAJE PARA EL DESPEGUE</p>
+      <input type="text" id="username" placeholder="Tu nombre de Astronauta (ej. Sofía)" autocomplete="off">
+      <input type="password" id="password" placeholder="Clave de nave (ej. 123)" autocomplete="off">
+      <button id="t-loginBtn" onclick="login()">PONERME EL CASCO Y DESPEGAR</button>
+      <div class="error-msg" id="errorMsg"></div>
+    </div>
+  </div>
+
+  <!-- PANTALLA DE SIMULACIÓN -->
+  <div id="gameScreen">
+    <canvas id="gameCanvas" tabindex="0"></canvas>
+    <div id="threeContainer"></div>
+
+    <!-- EFECTOS DE VISOR -->
+    <div class="fpv-helmet-frame"></div>
+    <div id="visorEffects"></div>
+    <div id="blurOverlay"></div>
+    <div id="alarma"></div>
+
+    <!-- JOYSTICK TÁCTIL / RATÓN -->
+    <div id="joystick">
+      <div class="joy-ring"></div>
+      <div id="stick"></div>
+    </div>
+
+    <!-- BARRA SUPERIOR DE ETAPAS -->
+    <nav class="top-nav">
+      <button class="nav-lvl-btn active" id="nav-1" onclick="loadLevel(1)"><span class="step-num">1</span> <span id="t-nav1">ÓRBITA ORION</span></button>
+      <button class="nav-lvl-btn" id="nav-15" onclick="loadLevel(1.5)"><span class="step-num">2</span> <span id="t-nav15">ROVER LUNAR</span></button>
+      <button class="nav-lvl-btn" id="nav-2" onclick="loadLevel(2)"><span class="step-num">3</span> <span id="t-nav2">AIRLOCK UV</span></button>
+      <button class="nav-lvl-btn" id="nav-3" onclick="loadLevel(3)"><span class="step-num">4</span> <span id="t-nav3">BASE 14 DÍAS</span></button>
+      <button class="nav-lvl-btn" id="nav-4" onclick="loadLevel(4)"><span class="step-num">5</span> <span id="t-nav4">CRÁTER HIELO</span></button>
+      <button class="nav-lvl-btn btn-3d-tab" id="nav-5" onclick="loadLevel(5)">🛰️ <span id="t-nav5">MUSEO 3D</span></button>
+      <button class="lang-btn" id="langBtnGame" onclick="toggleLanguage()">🌐 EN</button>
+      <button class="restart-btn" onclick="loadLevel(currentLevel)" title="Restart">↺</button>
+      <button class="audio-btn" id="audioToggleBtn" onclick="audioSys.toggle()" title="Audio">🔊</button>
+    </nav>
+
+    <!-- TELEMETRÍA IZQUIERDA -->
+    <div class="hud">
+      <div class="hud-card">
+        <div class="hud-head"><div class="hud-label" id="hudLabel1">◈ Casco</div><div class="hud-value" id="hudVal1">100%</div></div>
+        <div class="bar"><div class="bar-fill" id="hudBar1" style="width:100%"></div></div>
+      </div>
+      <div class="hud-card">
+        <div class="hud-head"><div class="hud-label" id="hudLabel2">◈ Delta-V</div><div class="hud-value" id="hudVal2">2800 m/s</div></div>
+        <div class="bar"><div class="bar-fill" id="hudBar2" style="width:100%"></div></div>
+      </div>
+      <div class="hud-card">
+        <div class="hud-head"><div class="hud-label" id="hudLabel3">◈ Giro PTC</div><div class="hud-value" id="hudVal3">0.4 RPM</div></div>
+        <div class="bar"><div class="bar-fill" id="hudBar3" style="width:30%"></div></div>
+      </div>
+      <div class="hud-card">
+        <div class="hud-head"><div class="hud-label" id="hudLabel4">◎ Velocidad</div><div class="hud-value" id="hudVal4">1.60 km/s</div></div>
+        <div class="bar"><div class="bar-fill" id="hudBar4" style="width:0%"></div></div>
+      </div>
+
+      <!-- TARJETA EDUCATIVA DINÁMICA -->
+      <div class="science-card" id="scienceCard">
+        <div class="science-header" id="t-scienceHeader">💡 ¿SABÍAS QUÉ?</div>
+        <p id="scienceFact"></p>
+      </div>
+    </div>
+
+    <!-- ASISTENTE EDUCATIVO ASTRA -->
+    <div class="astra-helper">
+      <div class="astra-avatar">🤖</div>
+      <div class="astra-text">
+        <div class="astra-top">
+          <h4 id="t-astraTitle">ASTRA · GUÍA DE MISIÓN</h4>
+          <button class="btn-learn-more" id="t-btnScience" onclick="openScienceLesson()">📖 Ver Ciencia</button>
+        </div>
+        <p id="astraTip"></p>
+      </div>
+    </div>
+
+    <!-- PANEL DE MANDO DERECHO -->
+    <div class="right-dock">
+      <div class="objective">
+        <h3 id="objTitle"></h3>
+        <p id="objectiveText"></p>
+      </div>
+      <div class="console-panel" id="levelConsole"></div>
+    </div>
+
+    <!-- BARRA DE CAMINATA EN ESTACIÓN (ETAPA 4) -->
+    <div class="walk-bar" id="walkBar">
+      <button class="walk-btn" id="t-walkLeft" onmousedown="lvl3.walkDir=-1" onmouseup="lvl3.walkDir=0" onmouseleave="lvl3.walkDir=0" ontouchstart="lvl3.walkDir=-1" ontouchend="lvl3.walkDir=0">◀ SALA IZQ [A]</button>
+      <span id="roomIndicator">PUENTE CENTRAL</span>
+      <button class="walk-btn" id="t-walkRight" onmousedown="lvl3.walkDir=1" onmouseup="lvl3.walkDir=0" onmouseleave="lvl3.walkDir=0" ontouchstart="lvl3.walkDir=1" ontouchend="lvl3.walkDir=0">SALA DER [D] ▶</button>
+    </div>
+
+    <!-- SELECTOR MUSEO 3D (ETAPA 6) -->
+    <div class="model-selector" id="modelSelector">
+      <button class="model-btn active" id="t-m1" onclick="cargarModeloNASA('Apolo_lunar.glb', this)">🛸 Módulo Lunar Apollo</button>
+      <button class="model-btn" id="t-m2" onclick="cargarModeloNASA('Space Exploration Vehicle.glb', this)">🚙 Rover Presurizado SEV</button>
+      <button class="model-btn" id="t-m3" onclick="cargarModeloNASA('Redstone 3 (Freedom 7).glb', this)">🚀 Cápsula Freedom 7</button>
+      <button class="model-btn" id="t-m4" onclick="cargarModeloNASA('Atlas 9 (Faith 7).glb', this)">🛰️ Cápsula Faith 7</button>
+      <button class="model-btn" id="t-m5" onclick="cargarModeloNASA('Moon (far side).stl', this)">🌑 Cara Oculta de la Luna</button>
+      <button class="model-btn" id="t-m6" onclick="cargarModeloNASA('Apolo_16.stl', this)">🏔️ Cráteres Apollo 16</button>
+      <button class="model-btn" id="t-m7" onclick="cargarModeloNASA('Asteroid 101955 Bennu.stl', this)">☄️ Asteroide Bennu</button>
+      <button class="model-btn" id="t-m8" onclick="cargarModeloNASA('Asteroid 4 Vesta (A).stl', this)">🪨 Asteroide Vesta</button>
+    </div>
+
+    <!-- RADIO CAPCOM INFERIOR -->
+    <div class="capcom-bar">
+      <div class="delay-box">
+        <span id="t-radioLabel">RADIO TIERRA: 1.28s</span>
+        <div class="delay-track"><div class="delay-fill" id="delayFill"></div></div>
+      </div>
+      <div class="capcom-text" id="capcomText"></div>
+      <button class="btn-capcom" id="t-btnCapcom" onclick="capcom.sendReport()">📡 LLAMAR A HOUSTON</button>
+    </div>
+  </div>
+
+  <!-- MODAL DE LOGROS Y LECCIONES -->
+  <div id="messageScreen">
+    <div class="message-box">
+      <div id="modalBadge" class="modal-badge">🚀</div>
+      <h2 id="messageTitle"></h2>
+      <p id="messageText"></p>
+      <div class="modal-btns" id="modalBtns"></div>
+    </div>
+  </div>
+
+  <audio id="bgMusic" loop>
+    <source src="audio/_An_der_schönen,_blauen_Donau__performed_by_the_US_Marine_Band.mp3" type="audio/mp3">
+  </audio>
+
+  <script>
+    (function () {
+      const scripts = [
+        'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
+        'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js',
+        'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js',
+        'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js',
+        'main.js'
+      ];
+
+      function loadNext(index) {
+        if (index >= scripts.length) return;
+        const src = scripts[index];
+
+        // Evita cargar dos veces el mismo script si el entorno reinyecta el HTML
+        if (document.querySelector(`script[data-astr-src="${src}"]`)) {
+          loadNext(index + 1);
+          return;
+        }
+
+        const s = document.createElement('script');
+        s.src = src;
+        s.async = false;
+        s.setAttribute('data-astr-src', src);
+        s.onload = () => loadNext(index + 1);
+        s.onerror = () => loadNext(index + 1);
+        document.body.appendChild(s);
+      }
+
+      loadNext(0);
+    })();
+  </script>
+</body>
+</html>

@@ -397,7 +397,7 @@
     window.commanderName = user;
     audioSys.success();
     document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('gameScreen').style.display = 'block';
+    document.getElementById('gameScreen').style.display = '';
     window.gameStarted = true;
     resize();
     canvas.focus();
@@ -414,13 +414,19 @@
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
 
+  function updateCanvasPointer(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = clientX - rect.left;
+    mouse.y = clientY - rect.top;
+  }
+
   const joyState = { active: false, x: 0, z: 0 };
   const joyEl = document.getElementById('joystick');
   const stickEl = document.getElementById('stick');
 
   function handleJoyMove(clientX, clientY) {
     const rect = joyEl.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2, maxR = 36;
+    const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2, maxR = 32;
     let dx = clientX - cx, dy = clientY - cy;
     const dist = Math.hypot(dx, dy);
     if (dist > maxR) { dx = (dx / dist) * maxR; dy = (dy / dist) * maxR; }
@@ -441,16 +447,14 @@
     if (e.touches.length > 0) {
       audioSys.init();
       mouse.down = true;
-      mouse.x = e.touches[0].clientX;
-      mouse.y = e.touches[0].clientY;
+      updateCanvasPointer(e.touches[0].clientX, e.touches[0].clientY);
       onCanvasClick();
     }
   }, { passive: true });
 
   canvas.addEventListener('touchmove', e => {
     if (e.touches.length > 0) {
-      mouse.x = e.touches[0].clientX;
-      mouse.y = e.touches[0].clientY;
+      updateCanvasPointer(e.touches[0].clientX, e.touches[0].clientY);
       onCanvasMove();
     }
   }, { passive: true });
@@ -465,9 +469,13 @@
   joyEl?.addEventListener('touchmove', e => { e.preventDefault(); if (joyState.active) handleJoyMove(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
   joyEl?.addEventListener('touchend', resetJoy);
 
-  function resize() {
+  function getGameHeight() {
     const isMobile = window.innerWidth <= 768;
-    const gameH = isMobile ? Math.round(window.innerHeight * 0.46) : window.innerHeight;
+    return isMobile ? Math.round(window.innerHeight * 0.46) : window.innerHeight;
+  }
+
+  function resize() {
+    const gameH = getGameHeight();
     canvas.width = window.innerWidth;
     canvas.height = gameH;
     if (renderer3D && camera3D) {
@@ -489,10 +497,13 @@
   window.addEventListener('blur', () => { activeKeys = {}; });
 
   canvas.addEventListener('mousedown', e => {
-    audioSys.init(); mouse.down = true; mouse.x = e.clientX; mouse.y = e.clientY; onCanvasClick();
+    audioSys.init(); mouse.down = true;
+    updateCanvasPointer(e.clientX, e.clientY);
+    onCanvasClick();
   });
   canvas.addEventListener('mousemove', e => {
-    mouse.x = e.clientX; mouse.y = e.clientY; onCanvasMove();
+    updateCanvasPointer(e.clientX, e.clientY);
+    onCanvasMove();
   });
   window.addEventListener('mouseup', () => {
     mouse.down = false;
@@ -534,11 +545,12 @@
     const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 1.3 }));
     scene3D.add(stars);
 
-    camera3D = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
+    const gameH = getGameHeight();
+    camera3D = new THREE.PerspectiveCamera(45, window.innerWidth / gameH, 0.1, 2000);
     camera3D.position.set(0, 4, 12);
 
     renderer3D = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer3D.setSize(window.innerWidth, window.innerHeight);
+    renderer3D.setSize(window.innerWidth, gameH);
     renderer3D.setPixelRatio(window.devicePixelRatio || 1);
     container.appendChild(renderer3D.domElement);
 
@@ -655,15 +667,16 @@
     document.getElementById('gameCanvas').style.display = is3D ? 'none' : 'block';
     document.getElementById('threeContainer').style.display = is3D ? 'block' : 'none';
     document.getElementById('modelSelector').style.display = is3D ? 'flex' : 'none';
-    document.querySelector('.hud').style.display = is3D ? 'none' : 'flex';
-    document.querySelector('.right-dock').style.display = is3D ? 'none' : 'flex';
-    document.querySelector('.astra-helper').style.display = is3D ? 'none' : 'flex';
+    document.querySelector('.hud').style.display = is3D ? 'none' : '';
+    document.querySelector('.right-dock').style.display = is3D ? 'none' : '';
+    document.querySelector('.astra-helper').style.display = is3D ? 'none' : '';
 
     const navIds = ['1', '15', '2', '3', '4', '5'];
     const targetId = lvl === 1.5 ? '15' : String(lvl);
     navIds.forEach(id => document.getElementById(`nav-${id}`)?.classList.toggle('active', id === targetId));
 
     if (document.activeElement) document.activeElement.blur();
+    resize();
 
     if (is3D) {
       if (!renderer3D) initThreeJS();
@@ -822,7 +835,8 @@
   function initLevel2() {
     updateLvl2Texts();
     const isMobile = canvas.width <= 768;
-    const cx = canvas.width * (isMobile ? 0.5 : 0.42), cy = canvas.height * 0.54;
+    const scale = isMobile ? 0.62 : 1;
+    const cx = canvas.width * (isMobile ? 0.5 : 0.42), cy = canvas.height * (isMobile ? 0.56 : 0.54);
     const dustSpots = [
       { ox: -18, oy: -102, r: 16 }, { ox: 14, oy: -98, r: 15 }, { ox: 0, oy: -115, r: 13 },
       { ox: -32, oy: -25, r: 20 }, { ox: 28, oy: -18, r: 19 }, { ox: 0, oy: 12, r: 22 },
@@ -831,7 +845,7 @@
       { ox: -34, oy: 132, r: 17 }, { ox: 34, oy: 132, r: 17 }
     ];
     lvl2 = {
-      visorDust: dustSpots.map(s => ({ x: cx + s.ox, y: cy + s.oy, r: s.r, clean: false })),
+      visorDust: dustSpots.map(s => ({ x: cx + s.ox * scale, y: cy + s.oy * scale, r: Math.max(12, s.r * scale), clean: false })),
       suitportClean: false, uvPct: 0, uvHolding: false, uvDone: false,
       presPct: 0, presHolding: false, presDone: false, mareoTimer: 0, mareoDone: false,
       spo2: 92, pulso: 105, tension: 100, establePct: 0, medDone: false,
@@ -1045,9 +1059,9 @@
     if (info.type === 'scrub') {
       const count = d === 6 ? 7 : 5;
       lvl3.scrubSpots = Array.from({ length: count }, (_, idx) => ({
-        ox: -90 + (idx % 4) * 58 + (idx > 3 ? 25 : 0),
-        oy: -35 + Math.floor(idx / 4) * 55,
-        r: d === 6 ? 18 : 16, done: false
+        ox: -75 + (idx % 4) * 48 + (idx > 3 ? 20 : 0),
+        oy: -24 + Math.floor(idx / 4) * 42,
+        r: d === 6 ? 16 : 15, done: false
       }));
     }
     capcom.say(lang === 'es' ? `DÍA ${d}/14: ${info.title.es} → Ve a ${info.roomName.es}.` : `DAY ${d}/14: ${info.title.en} → Go to ${info.roomName.en}.`, true);
@@ -1326,7 +1340,7 @@
   }
   function cleanVisorDust() {
     const es = window.currentLang === 'es';
-    lvl2.visorDust.forEach(d => { if (!d.clean && Math.hypot(mouse.x - d.x, mouse.y - d.y) < 48) d.clean = true; });
+    lvl2.visorDust.forEach(d => { if (!d.clean && Math.hypot(mouse.x - d.x, mouse.y - d.y) < 42) d.clean = true; });
     if (lvl2.visorDust.every(d => d.clean) && !lvl2.suitportClean) {
       lvl2.suitportClean = true; audioSys.success();
       capcom.say(es ? "¡Traje limpio de polvo lunar! Ahora mantén pulsado Esterilizar UV." : "Suit clean of lunar dust! Now hold UV Sterilize.");
@@ -1711,8 +1725,8 @@
     });
 
     const moonProgress = Math.max(0, (1.6 - lvl1.velocity) / 1.6);
-    const moonR = 90 + moonProgress * 320;
-    const moonY = h * 0.52 + (1 - moonProgress) * 140;
+    const moonR = (w <= 768 ? 55 : 90) + moonProgress * (w <= 768 ? 190 : 320);
+    const moonY = h * 0.52 + (1 - moonProgress) * 100;
     const moonGrad = ctx.createRadialGradient(cx, moonY - moonR * 0.3, 20, cx, moonY, moonR);
     moonGrad.addColorStop(0, '#94a3b8'); moonGrad.addColorStop(0.7, '#475569'); moonGrad.addColorStop(1, '#0f172a');
     ctx.fillStyle = moonGrad; ctx.beginPath(); ctx.arc(cx, moonY, moonR, 0, Math.PI * 2); ctx.fill();
@@ -1723,24 +1737,26 @@
       ctx.fillStyle = '#cbd5e1'; ctx.fill();
     });
 
-    ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 36;
-    ctx.beginPath(); ctx.moveTo(0, h * 0.72); ctx.lineTo(w * 0.28, h * 0.62); ctx.lineTo(w * 0.72, h * 0.62); ctx.lineTo(w, h * 0.72); ctx.stroke();
+    ctx.strokeStyle = '#1e293b'; ctx.lineWidth = w <= 768 ? 22 : 36;
+    ctx.beginPath(); ctx.moveTo(0, h * 0.74); ctx.lineTo(w * 0.28, h * 0.64); ctx.lineTo(w * 0.72, h * 0.64); ctx.lineTo(w, h * 0.74); ctx.stroke();
 
     ctx.save(); ctx.translate(w / 2, h / 2); ctx.rotate(performance.now() * 0.001 * lvl1.ptcRpm);
     ctx.strokeStyle = lvl1.ptcOk ? '#4ade80' : '#fde047'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(-110, 0); ctx.lineTo(-40, 0); ctx.moveTo(40, 0); ctx.lineTo(110, 0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-95, 0); ctx.lineTo(-35, 0); ctx.moveTo(35, 0); ctx.lineTo(95, 0); ctx.stroke();
     ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
   }
 
   function renderFPV_Level15(w, h) {
     const es = window.currentLang === 'es';
+    const isMobile = w <= 768;
     const bounceOffset = lvl15.yBounce * 2.2;
     const horizonY = h * 0.44 + bounceOffset;
-    const centerX = w * (w <= 768 ? 0.5 : 0.42);
+    const centerX = w * (isMobile ? 0.5 : 0.42);
+    const bottomPad = isMobile ? 16 : 68;
 
     ctx.fillStyle = '#02040a'; ctx.fillRect(0, 0, w, horizonY);
-    drawRealisticEarth(w * 0.28 - lvl15.x * 0.2, h * 0.16 + bounceOffset * 0.4, 28);
+    drawRealisticEarth(w * 0.28 - lvl15.x * 0.2, h * 0.16 + bounceOffset * 0.4, isMobile ? 20 : 28);
 
     const groundGrad = ctx.createLinearGradient(0, horizonY, 0, h);
     groundGrad.addColorStop(0, '#475569'); groundGrad.addColorStop(1, '#1e293b');
@@ -1752,15 +1768,15 @@
       ctx.beginPath(); ctx.moveTo(centerX + i * 42 - lvl15.x * 0.5, horizonY); ctx.lineTo(centerX + i * 260 - lvl15.x * 1.4, h); ctx.stroke();
     }
     for (let row = 1; row <= 5; row++) {
-      const ry = horizonY + Math.pow(row / 5, 1.65) * (h - horizonY - 68) + (gridOffset * 0.4);
-      if (ry < h - 68) { ctx.beginPath(); ctx.moveTo(0, ry); ctx.lineTo(w, ry); ctx.stroke(); }
+      const ry = horizonY + Math.pow(row / 5, 1.65) * (h - horizonY - bottomPad) + (gridOffset * 0.4);
+      if (ry < h - bottomPad) { ctx.beginPath(); ctx.moveTo(0, ry); ctx.lineTo(w, ry); ctx.stroke(); }
     }
 
     lvl15.craters.forEach(c => {
       const dx = c.x - lvl15.x, dz = c.z - lvl15.z;
       if (dz > 8) {
         const scale = Math.min(2.4, 280 / dz);
-        const sx = centerX + dx * scale * 1.6, sy = horizonY + 135 * scale;
+        const sx = centerX + dx * scale * 1.6, sy = horizonY + (isMobile ? 85 : 135) * scale;
         const radX = c.r * scale * 1.3, radY = c.r * scale * 0.44;
         ctx.fillStyle = '#020617'; ctx.beginPath(); ctx.ellipse(sx, sy, radX, radY, 0, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = '#f87171'; ctx.lineWidth = 2; ctx.stroke();
@@ -1772,7 +1788,7 @@
     const dzSt = lvl15.stationPos.z - lvl15.z;
     if (dzSt > 8) {
       const scale = Math.min(2.8, 300 / dzSt);
-      const sx = centerX + (lvl15.stationPos.x - lvl15.x) * scale * 1.5, sy = horizonY + 80 * scale;
+      const sx = centerX + (lvl15.stationPos.x - lvl15.x) * scale * 1.5, sy = horizonY + (isMobile ? 55 : 80) * scale;
       ctx.fillStyle = '#f8fafc'; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2.5;
       ctx.beginPath(); ctx.roundRect(sx - 85 * scale, sy - 48 * scale, 170 * scale, 48 * scale, 10 * scale); ctx.fill(); ctx.stroke();
       ctx.fillStyle = '#0284c7';
@@ -1787,7 +1803,7 @@
       const dx = lvl15.roverPos.x - lvl15.x, dz = lvl15.roverPos.z - lvl15.z;
       if (dz > 5) {
         const scale = Math.min(2.6, 260 / dz);
-        const rx = centerX + dx * scale * 1.6, ry = horizonY + 130 * scale;
+        const rx = centerX + dx * scale * 1.6, ry = horizonY + (isMobile ? 82 : 130) * scale;
         ctx.fillStyle = '#e2e8f0'; ctx.fillRect(rx - 42 * scale, ry - 26 * scale, 84 * scale, 18 * scale);
         ctx.fillStyle = '#fde047'; ctx.fillRect(rx - 28 * scale, ry - 40 * scale, 32 * scale, 14 * scale);
         ctx.fillStyle = '#1e293b';
@@ -1799,7 +1815,7 @@
         ctx.fillText(near ? (es ? '¡ROVER LISTO! PULSA SUBIR AL ROVER' : 'ROVER READY! PRESS BOARD ROVER') : `ROVER LTV (${Math.round(Math.hypot(dx, dz))}m)`, rx, ry - 48 * scale);
         ctx.textAlign = 'left';
       }
-    } else {
+    } else if (!isMobile) {
       ctx.fillStyle = '#0f172a'; ctx.fillRect(w * 0.22, h - 72, w * 0.45, 72);
       ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(w * 0.22, h - 72, w * 0.45, 72);
       ctx.fillStyle = '#38bdf8'; ctx.font = '800 10.5px Orbitron';
@@ -1812,55 +1828,61 @@
   function renderFPV_Level2(w, h) {
     const es = window.currentLang === 'es';
     const isMobile = w <= 768;
+    const scale = isMobile ? 0.62 : 1;
     const px = (mouse.x - w * 0.5) * 0.025, py = (mouse.y - h * 0.5) * 0.02;
     ctx.fillStyle = '#091122'; ctx.fillRect(0, 0, w, h);
 
-    const cx = w * (isMobile ? 0.5 : 0.42) - px, cy = h * 0.54 - py;
+    const cx = w * (isMobile ? 0.5 : 0.42) - px, cy = h * (isMobile ? 0.56 : 0.54) - py;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
 
     ctx.fillStyle = '#111c33'; ctx.strokeStyle = lvl2.suitportClean ? '#4ade80' : '#fde047'; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.roundRect(cx - 150, cy - 195, 300, 385, 24); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.roundRect(-150, -195, 300, 385, 24); ctx.fill(); ctx.stroke();
 
     if (lvl2.uvHolding || (lvl2.uvDone && !lvl2.presDone)) {
-      const uvGlow = ctx.createRadialGradient(cx, cy, 30, cx, cy, 210);
+      const uvGlow = ctx.createRadialGradient(0, 0, 30, 0, 0, 210);
       uvGlow.addColorStop(0, 'rgba(192, 132, 252, 0.5)');
       uvGlow.addColorStop(1, 'rgba(139, 92, 246, 0)');
-      ctx.fillStyle = uvGlow; ctx.fillRect(cx - 160, cy - 205, 320, 405);
+      ctx.fillStyle = uvGlow; ctx.fillRect(-160, -205, 320, 405);
     }
 
     ctx.strokeStyle = '#334155'; ctx.lineWidth = 8;
-    ctx.beginPath(); ctx.roundRect(cx - 134, cy - 180, 268, 355, 18); ctx.stroke();
+    ctx.beginPath(); ctx.roundRect(-134, -180, 268, 355, 18); ctx.stroke();
 
-    ctx.fillStyle = '#cbd5e1'; ctx.beginPath(); ctx.roundRect(cx - 64, cy - 68, 128, 130, 14); ctx.fill();
+    ctx.fillStyle = '#cbd5e1'; ctx.beginPath(); ctx.roundRect(-64, -68, 128, 130, 14); ctx.fill();
     ctx.fillStyle = '#f1f5f9';
-    ctx.beginPath(); ctx.roundRect(cx - 46, cy + 48, 38, 86, 10); ctx.fill();
-    ctx.beginPath(); ctx.roundRect(cx + 8, cy + 48, 38, 86, 10); ctx.fill();
-    ctx.fillStyle = '#ef4444'; ctx.fillRect(cx - 46, cy + 78, 38, 6); ctx.fillRect(cx + 8, cy + 78, 38, 6);
+    ctx.beginPath(); ctx.roundRect(-46, 48, 38, 86, 10); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(8, 48, 38, 86, 10); ctx.fill();
+    ctx.fillStyle = '#ef4444'; ctx.fillRect(-46, 78, 38, 6); ctx.fillRect(8, 78, 38, 6);
     ctx.fillStyle = '#334155';
-    ctx.beginPath(); ctx.roundRect(cx - 50, cy + 124, 44, 22, 6); ctx.fill();
-    ctx.beginPath(); ctx.roundRect(cx + 6, cy + 124, 44, 22, 6); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(-50, 124, 44, 22, 6); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(6, 124, 44, 22, 6); ctx.fill();
 
     ctx.fillStyle = '#f8fafc';
-    ctx.beginPath(); ctx.roundRect(cx - 86, cy - 42, 32, 92, 12); ctx.fill();
-    ctx.beginPath(); ctx.roundRect(cx + 54, cy - 42, 32, 92, 12); ctx.fill();
-    ctx.fillStyle = '#0284c7'; ctx.fillRect(cx - 86, cy - 10, 32, 6); ctx.fillRect(cx + 54, cy - 10, 32, 6);
+    ctx.beginPath(); ctx.roundRect(-86, -42, 32, 92, 12); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(54, -42, 32, 92, 12); ctx.fill();
+    ctx.fillStyle = '#0284c7'; ctx.fillRect(-86, -10, 32, 6); ctx.fillRect(54, -10, 32, 6);
 
-    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.roundRect(cx - 56, cy - 55, 112, 110, 18); ctx.fill();
-    ctx.fillStyle = '#1d4ed8'; ctx.fillRect(cx - 44, cy - 38, 22, 13);
-    ctx.fillStyle = '#ef4444'; ctx.fillRect(cx - 34, cy - 38, 12, 13);
+    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.roundRect(-56, -55, 112, 110, 18); ctx.fill();
+    ctx.fillStyle = '#1d4ed8'; ctx.fillRect(-44, -38, 22, 13);
+    ctx.fillStyle = '#ef4444'; ctx.fillRect(-34, -38, 12, 13);
 
-    ctx.fillStyle = '#1e293b'; ctx.beginPath(); ctx.roundRect(cx - 32, cy - 22, 64, 46, 7); ctx.fill();
+    ctx.fillStyle = '#1e293b'; ctx.beginPath(); ctx.roundRect(-32, -22, 64, 46, 7); ctx.fill();
     ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 1.5; ctx.stroke();
-    ctx.fillStyle = '#4ade80'; ctx.fillRect(cx - 22, cy - 13, 28, 10);
-    ctx.fillStyle = '#38bdf8'; ctx.fillRect(cx - 22, cy + 4, 42, 8);
+    ctx.fillStyle = '#4ade80'; ctx.fillRect(-22, -13, 28, 10);
+    ctx.fillStyle = '#38bdf8'; ctx.fillRect(-22, 4, 42, 8);
 
-    ctx.fillStyle = '#f8fafc'; ctx.beginPath(); ctx.arc(cx, cy - 104, 46, 0, Math.PI * 2); ctx.fill();
-    const visorGrad = ctx.createLinearGradient(cx - 30, cy - 130, cx + 30, cy - 80);
+    ctx.fillStyle = '#f8fafc'; ctx.beginPath(); ctx.arc(0, -104, 46, 0, Math.PI * 2); ctx.fill();
+    const visorGrad = ctx.createLinearGradient(-30, -130, 30, -80);
     visorGrad.addColorStop(0, '#fef08a'); visorGrad.addColorStop(0.45, '#f59e0b'); visorGrad.addColorStop(1, '#78350f');
-    ctx.fillStyle = visorGrad; ctx.beginPath(); ctx.ellipse(cx, cy - 104, 34, 28, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = visorGrad; ctx.beginPath(); ctx.ellipse(0, -104, 34, 28, 0, 0, Math.PI * 2); ctx.fill();
 
     ctx.fillStyle = lvl2.suitportClean ? '#4ade80' : '#38bdf8';
     ctx.font = '800 12px Orbitron'; ctx.textAlign = 'center';
-    ctx.fillText(es ? 'AIRLOCK SUITPORT · TRAJE NASA xEMU' : 'SUITPORT AIRLOCK · NASA xEMU SUIT', cx, cy - 208);
+    ctx.fillText(es ? 'AIRLOCK SUITPORT · TRAJE NASA xEMU' : 'SUITPORT AIRLOCK · NASA xEMU SUIT', 0, -208);
+    ctx.restore();
 
     lvl2.visorDust.forEach(d => {
       if (!d.clean) {
@@ -1869,15 +1891,19 @@
       }
     });
 
-    ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 22; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(w * 0.72, h); ctx.lineTo(mouse.x + 18, mouse.y + 18); ctx.stroke();
-    ctx.fillStyle = '#0284c7'; ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 10, 0, Math.PI * 2); ctx.fill();
+    if (mouse.x > 0 || mouse.y > 0) {
+      ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = isMobile ? 14 : 22; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(w * 0.72, h); ctx.lineTo(mouse.x + 18, mouse.y + 18); ctx.stroke();
+      ctx.fillStyle = '#0284c7'; ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 10, 0, Math.PI * 2); ctx.fill();
+    }
     ctx.textAlign = 'left';
   }
 
   function renderFPV_Level3_Station(w, h) {
     const lang = window.currentLang;
     const es = lang === 'es';
+    const isMobile = w <= 768;
+    const baseCenter = w * (isMobile ? 0.5 : 0.45);
     const pan = -(lvl3.walkX / 100) * (w * 0.65);
     const bob = Math.sin(lvl3.headBob) * 5;
     const info = day3Catalog[lvl3.day];
@@ -1898,7 +1924,7 @@
     ctx.fillRect(0, h * 0.23 + bob, w, 5);
 
     const modY = h * 0.34 + bob;
-    const leftX = w * 0.45 + pan - w * 0.65;
+    const leftX = baseCenter + pan - w * 0.65;
     ctx.fillStyle = '#0f172a'; ctx.strokeStyle = '#64748b'; ctx.lineWidth = 6;
     ctx.beginPath(); ctx.arc(leftX - 130, modY + 120, 85, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#cbd5e1'; ctx.font = '800 10px Orbitron';
@@ -1907,7 +1933,7 @@
     ctx.fillStyle = '#162033'; ctx.fillRect(leftX - 15, modY + 15, 145, 210);
     ctx.fillStyle = '#38bdf8'; ctx.fillText(es ? 'RECICLAJE H₂O / LiOH' : 'H₂O / LiOH RECYCLING', leftX - 5, modY + 35);
 
-    const centerX = w * 0.45 + pan;
+    const centerX = baseCenter + pan;
     ctx.fillStyle = '#02040a'; ctx.fillRect(centerX - 170, modY + 5, 340, 135);
     ctx.strokeStyle = '#475569'; ctx.lineWidth = 8; ctx.strokeRect(centerX - 170, modY + 5, 340, 135);
     drawRealisticEarth(centerX - 95, modY + 52, 20);
@@ -1919,7 +1945,7 @@
     ctx.fillStyle = '#4ade80'; ctx.font = '10px Consolas';
     ctx.fillText(es ? 'KILOPOWER 10kW | ANTENA TIERRA | MAPA 3D' : 'KILOPOWER 10kW | EARTH DISH | 3D MAP', centerX - 164, modY + 185);
 
-    const rightX = w * 0.45 + pan + w * 0.65;
+    const rightX = baseCenter + pan + w * 0.65;
     ctx.fillStyle = '#162033'; ctx.fillRect(rightX - 185, modY + 15, 155, 210);
     ctx.fillStyle = '#38bdf8'; ctx.font = '800 10px Orbitron'; ctx.fillText(es ? 'LAB & INVERNADERO' : 'LAB & GREENHOUSE', rightX - 175, modY + 35);
 
@@ -1927,7 +1953,8 @@
     ctx.fillStyle = '#c4b5fd'; ctx.fillText(es ? 'BAHÍA ROVER LTV' : 'LTV ROVER BAY', rightX - 4, modY + 35);
 
     const targetBaseX = info.room === -1 ? leftX : (info.room === 0 ? centerX : rightX + 35);
-    const hx = targetBaseX - 145, hy = modY + 35, hw = 290, hh = 175;
+    const hw = isMobile ? 230 : 290, hh = isMobile ? 130 : 175;
+    const hx = targetBaseX - hw / 2, hy = modY + 25;
     lvl3.hotspotRect = { x: hx, y: hy, w: hw, h: hh };
 
     ctx.strokeStyle = lvl3.solved ? '#4ade80' : `rgba(253, 224, 71, ${0.5 + alertPulse * 0.5})`;
@@ -1942,32 +1969,37 @@
           ctx.strokeStyle = '#fde047'; ctx.lineWidth = 1.5; ctx.stroke();
         }
       });
-      ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 26, 0, Math.PI * 2); ctx.stroke();
+      if (mouse.x > 0 || mouse.y > 0) {
+        ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 26, 0, Math.PI * 2); ctx.stroke();
+      }
     }
 
-    ctx.fillStyle = 'rgba(6, 12, 26, 0.9)'; ctx.fillRect(hx + 10, hy + hh - 34, hw - 20, 26);
-    ctx.fillStyle = lvl3.solved ? '#4ade80' : '#fde047'; ctx.font = '800 10.5px Orbitron';
-    ctx.fillText(lvl3.solved ? `✔ ${info.station[lang]}: OK` : `⚠ ${info.station[lang]}`, hx + 18, hy + hh - 17);
+    ctx.fillStyle = 'rgba(6, 12, 26, 0.9)'; ctx.fillRect(hx + 10, hy + hh - 32, hw - 20, 24);
+    ctx.fillStyle = lvl3.solved ? '#4ade80' : '#fde047'; ctx.font = '800 10px Orbitron';
+    ctx.fillText(lvl3.solved ? `✔ ${info.station[lang]}: OK` : `⚠ ${info.station[lang]}`, hx + 16, hy + hh - 16);
 
-    const barW = 280, barX = w * 0.42 - barW / 2, barY = 72;
-    ctx.fillStyle = 'rgba(8, 18, 38, 0.88)'; ctx.fillRect(barX, barY, barW, 24);
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)'; ctx.strokeRect(barX, barY, barW, 24);
+    const barW = isMobile ? 220 : 280, barX = w * (isMobile ? 0.5 : 0.42) - barW / 2, barY = isMobile ? 42 : 72;
+    ctx.fillStyle = 'rgba(8, 18, 38, 0.88)'; ctx.fillRect(barX, barY, barW, 22);
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)'; ctx.strokeRect(barX, barY, barW, 22);
     const playerDotX = barX + barW / 2 + (lvl3.walkX / 130) * (barW / 2 - 14);
     const targetDotX = barX + barW / 2 + (info.room * 100 / 130) * (barW / 2 - 14);
-    ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(targetDotX, barY + 12, 6, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#38bdf8'; ctx.beginPath(); ctx.arc(playerDotX, barY + 12, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(targetDotX, barY + 11, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#38bdf8'; ctx.beginPath(); ctx.arc(playerDotX, barY + 11, 5, 0, Math.PI * 2); ctx.fill();
   }
 
   function renderFPV_Level4(w, h) {
     const es = window.currentLang === 'es';
+    const isMobile = w <= 768;
+    const centerX = w * (isMobile ? 0.5 : 0.42);
+    const bottomPad = isMobile ? 16 : 70;
     const bounceOffset = lvl4.yBounce * 2.0;
     const horizonY = h * 0.46 + bounceOffset;
     const inPSR = lvl4.z >= 400;
     const target = getNextTargetL4();
 
     ctx.fillStyle = '#02040a'; ctx.fillRect(0, 0, w, horizonY);
-    drawRealisticEarth(w * 0.35 - lvl4.x * 0.25, h * 0.18 + bounceOffset * 0.4, 24);
+    drawRealisticEarth(w * 0.32 - lvl4.x * 0.25, h * 0.18 + bounceOffset * 0.4, isMobile ? 18 : 24);
 
     ctx.fillStyle = inPSR ? '#05070e' : '#334155';
     ctx.fillRect(0, horizonY, w, h - horizonY);
@@ -1976,18 +2008,18 @@
     ctx.strokeStyle = inPSR ? 'rgba(56,189,248,0.12)' : 'rgba(255,255,255,0.14)';
     ctx.lineWidth = 1.5;
     for (let i = -6; i <= 6; i++) {
-      ctx.beginPath(); ctx.moveTo(w * 0.42 + i * 45 - lvl4.x * 0.5, horizonY); ctx.lineTo(w * 0.42 + i * 280 - lvl4.x * 1.5, h); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(centerX + i * 45 - lvl4.x * 0.5, horizonY); ctx.lineTo(centerX + i * 280 - lvl4.x * 1.5, h); ctx.stroke();
     }
     for (let row = 1; row <= 5; row++) {
-      const ry = horizonY + Math.pow(row / 5, 1.7) * (h - horizonY - 70) + (gridOffset * 0.35);
-      if (ry < h - 70) { ctx.beginPath(); ctx.moveTo(0, ry); ctx.lineTo(w, ry); ctx.stroke(); }
+      const ry = horizonY + Math.pow(row / 5, 1.7) * (h - horizonY - bottomPad) + (gridOffset * 0.35);
+      if (ry < h - bottomPad) { ctx.beginPath(); ctx.moveTo(0, ry); ctx.lineTo(w, ry); ctx.stroke(); }
     }
 
     lvl4.craters.forEach(c => {
       const dx = c.x - lvl4.x, dz = c.z - lvl4.z;
       if (dz > 10) {
         const scale = Math.min(2.4, 310 / dz);
-        const sx = w * 0.42 + dx * scale * 1.5, sy = horizonY + 140 * scale;
+        const sx = centerX + dx * scale * 1.5, sy = horizonY + (isMobile ? 90 : 140) * scale;
         const radX = c.r * scale * 1.25, radY = c.r * scale * 0.42;
         ctx.fillStyle = '#020617'; ctx.beginPath(); ctx.ellipse(sx, sy, radX, radY, 0, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = '#f87171'; ctx.lineWidth = 2; ctx.stroke();
@@ -1998,12 +2030,13 @@
 
     const dzPsr = 400 - lvl4.z;
     if (dzPsr > 5 && dzPsr < 420) {
-      const psrY = horizonY + (310 / dzPsr) * 140;
-      if (psrY > horizonY && psrY < h - 70) {
+      const psrY = horizonY + (310 / dzPsr) * (isMobile ? 90 : 140);
+      if (psrY > horizonY && psrY < h - bottomPad) {
         ctx.strokeStyle = '#a78bfa'; ctx.lineWidth = 3; ctx.setLineDash([12, 8]);
         ctx.beginPath(); ctx.moveTo(0, psrY); ctx.lineTo(w, psrY); ctx.stroke(); ctx.setLineDash([]);
-        ctx.fillStyle = '#c4b5fd'; ctx.font = '800 11px Orbitron';
-        ctx.fillText(es ? '▼ ZONA HIELO PSR (-240 °C) · ENCIENDE LUZ UV ▼' : '▼ PSR ICE ZONE (-240 °C) · TURN ON UV LIGHT ▼', w * 0.23, psrY - 8);
+        ctx.fillStyle = '#c4b5fd'; ctx.font = '800 10px Orbitron'; ctx.textAlign = 'center';
+        ctx.fillText(es ? '▼ ZONA HIELO PSR (-240 °C) · LUZ UV ▼' : '▼ PSR ICE ZONE (-240 °C) · UV LIGHT ▼', centerX, psrY - 8);
+        ctx.textAlign = 'left';
       }
     }
 
@@ -2012,7 +2045,7 @@
       const dist = Math.round(Math.hypot(dx, dz));
       if (dz > 10) {
         const scale = Math.min(2.2, 310 / dz);
-        const sx = w * 0.42 + dx * scale * 1.5, sy = horizonY + 140 * scale;
+        const sx = centerX + dx * scale * 1.5, sy = horizonY + (isMobile ? 90 : 140) * scale;
         const inRange = !b.placed && dist < 75;
         ctx.fillStyle = b.placed ? '#4ade80' : (inRange ? '#fde047' : '#38bdf8');
         ctx.fillRect(sx - 7 * scale, sy - 50 * scale, 14 * scale, 50 * scale);
@@ -2025,18 +2058,18 @@
     });
 
     if (inPSR && lvl4.uvLights) {
-      const uv = ctx.createRadialGradient(w * 0.42, h * 0.72, 20, w * 0.42, h * 0.62, 360);
+      const uv = ctx.createRadialGradient(centerX, h * 0.72, 20, centerX, h * 0.62, 360);
       uv.addColorStop(0, 'rgba(167, 139, 250, 0.52)'); uv.addColorStop(1, 'rgba(167, 139, 250, 0)');
       ctx.fillStyle = uv; ctx.fillRect(0, horizonY, w, h - horizonY);
       ctx.fillStyle = 'rgba(56, 189, 248, 0.38)'; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.ellipse(w * 0.42, h * 0.72, 95, 28, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = '#e0f2fe'; ctx.font = '800 11px Orbitron'; ctx.textAlign = 'center';
-      ctx.fillText(lvl4.iceDrilled ? (es ? '✔ HIELO H₂O EXTRAÍDO' : '✔ H₂O ICE DRILLED') : (es ? '⛏️ HIELO DETECTADO · PULSA PERFORAR HIELO' : '⛏️ ICE DETECTED · PRESS DRILL ICE'), w * 0.42, h * 0.72 + 4);
+      ctx.beginPath(); ctx.ellipse(centerX, h * 0.72, 95, 28, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#e0f2fe'; ctx.font = '800 10.5px Orbitron'; ctx.textAlign = 'center';
+      ctx.fillText(lvl4.iceDrilled ? (es ? '✔ HIELO H₂O EXTRAÍDO' : '✔ H₂O ICE DRILLED') : (es ? '⛏️ HIELO DETECTADO · PULSA PERFORAR' : '⛏️ ICE DETECTED · PRESS DRILL'), centerX, h * 0.72 + 4);
       ctx.textAlign = 'left';
     }
 
     if (lvl4.hlsLanding) {
-      const hlsX = w * 0.42, hlsY = horizonY - lvl4.hlsAlt;
+      const hlsX = centerX, hlsY = horizonY - lvl4.hlsAlt;
       ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.moveTo(hlsX - 24, hlsY + 20); ctx.lineTo(hlsX - 42, hlsY + 42);
       ctx.moveTo(hlsX + 24, hlsY + 20); ctx.lineTo(hlsX + 42, hlsY + 42); ctx.stroke();
@@ -2062,13 +2095,13 @@
     }
 
     const targetAngle = Math.atan2(target.x - lvl4.x, target.z - lvl4.z);
-    const arrowX = w * 0.42, arrowY = 95;
+    const arrowX = centerX, arrowY = isMobile ? 34 : 95;
     ctx.save(); ctx.translate(arrowX, arrowY); ctx.rotate(targetAngle);
     ctx.fillStyle = '#fde047';
-    ctx.beginPath(); ctx.moveTo(0, -18); ctx.lineTo(13, 12); ctx.lineTo(0, 6); ctx.lineTo(-13, 12); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(0, -16); ctx.lineTo(12, 10); ctx.lineTo(0, 5); ctx.lineTo(-12, 10); ctx.closePath(); ctx.fill();
     ctx.restore();
-    ctx.fillStyle = '#fde047'; ctx.font = '800 10.5px Orbitron'; ctx.textAlign = 'center';
-    ctx.fillText(`${es ? 'DESTINO' : 'TARGET'}: ${target.label} (${Math.round(Math.hypot(target.x - lvl4.x, target.z - lvl4.z))}m)`, arrowX, arrowY + 30);
+    ctx.fillStyle = '#fde047'; ctx.font = '800 10px Orbitron'; ctx.textAlign = 'center';
+    ctx.fillText(`${es ? 'DESTINO' : 'TARGET'}: ${target.label} (${Math.round(Math.hypot(target.x - lvl4.x, target.z - lvl4.z))}m)`, arrowX, arrowY + 26);
     ctx.textAlign = 'left';
   }
 
